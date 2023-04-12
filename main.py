@@ -1,7 +1,7 @@
 from bs4 import BeautifulSoup
 import requests
-import json
 import time
+from fake_useragent import UserAgent
 
 
 def timer(func):
@@ -10,60 +10,32 @@ def timer(func):
         result = func(*args, **kwargs)
         print(f'Func spend {time.time() - t1} seconds')
         return result
-
     return wrapper
 
 
 @timer
-def to_json(url):
-    """parsing function of all data to json format"""
+def parse(url):
+    """parsing function of all data"""
 
-    urls = []
-    for category in range(1, 6):
-        for page in range(1, 5):
-            cur_url = f'{url}index{category}_page_{page}.html'
+    ua = UserAgent()
+    fake_ua = {'user-agent': ua.random}
+    response = requests.get(url=url, headers=fake_ua)
+    response.encoding = 'utf-8'
+    print('Status code is: ', response.status_code)
+    soup = BeautifulSoup(response.text, 'lxml')
 
-            response = requests.get(url=cur_url)
-            response.encoding = 'utf-8'
-            soup = BeautifulSoup(response.text, 'lxml')
+    div = soup.find_all('div', class_='speciality-full')
+    res = [line.text for line in div]
 
-            sale_buttons = soup.find_all('div', class_='sale_button')
-            for x in sale_buttons:
-                urls.append(url + x.find('a')['href'])
+    with open('res_file.txt', 'w') as res_file:
+        res_file.write('\n'.join(res))
 
-    result_json = []
-
-    for cur_url in urls:
-        response = requests.get(url=cur_url)
-        response.encoding = 'utf-8'
-        soup = BeautifulSoup(response.text, 'lxml')
-
-        descr_dict = {}
-        description = soup.find('ul', id='description').find_all('li')
-        li_id = [x['id'] for x in description]
-        for cur_id in li_id:
-            descr_dict[cur_id] = soup.find('li', id=cur_id).text.split(':')[1].strip()
-
-        cur_json = {
-            'categories': cur_url.split('/')[4],
-            'name': soup.find('p', id='p_header').text.strip(),
-            'article': soup.find('p', class_='article').text.split(':')[1].strip(),
-            'description': descr_dict,
-            'count': soup.find('span', id='in_stock').text.split(':')[1].strip(),
-            'price': soup.find('span', id='price').text,
-            'old_price': soup.find('span', id='old_price').text,
-            'link': cur_url
-        }
-
-        result_json.append(cur_json)
-    with open('result.json', 'w', encoding='utf-8') as file:
-            json.dump(result_json, file, indent=4, ensure_ascii=False)
-    return 'Файл создан'
+    return 'Выполнено!'
 
 
 def main():
-    url_to_json = 'https://parsinger.ru/html/'
-    print(to_json(url_to_json))
+    url_to_json = 'https://vuzoteka.ru/%D0%B2%D1%83%D0%B7%D1%8B/%D1%81%D0%BF%D0%B5%D1%86%D0%B8%D0%B0%D0%BB%D1%8C%D0%BD%D0%BE%D1%81%D1%82%D0%B8'
+    print(parse(url_to_json))
 
 
 if __name__ == '__main__':
